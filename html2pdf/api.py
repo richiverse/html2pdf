@@ -1,33 +1,43 @@
 #! /usr/bin/env python
 from os import environ
+from io import BytesIO, StringIO
+from tempfile import tempdir
 
-from flask import Flask, make_response, request
+import mimerender
+from flask import Flask, make_response, request, Response
 from jinja2 import Environment
-import pdfkit
+from xhtml2pdf import pisa
 
 api = Flask(__name__)
 
-config = pdfkit.configuration(wkhtmltopdf='./wkhtmltox/bin/wkhtmltopdf')
+mimerender.register_mime('pdf', ('application/pdf',))
+mimerender = mimerender.FlaskMimeRender(global_charset='UTF-8')
 
-@api.route('/', methods=['POST'])
+
+def render_pdf(html):
+    pdf = BytesIO()
+    pisa.CreatePDF(StringIO(html), pdf)
+    resp = pdf.getvalue()
+    pdf.close()
+    return resp
+
+@api.route('/', methods=['GET'])
+@mimerender(
+    default='pdf',
+    html=lambda html: html,
+    pdf=render_pdf,
+    override_input_key='format'
+)
 def generate_pdf():
     """Given HTML as __string, take the rest of kwargs and generate pdf."""
-    data = request.json
-    __string = data.pop('__string')
+    data = request.args
+    __string = data.get('__string')
 
-    try:
-        __filename = data.pop('__filename')
-    except KeyError:
-        __filename = 'output.pdf'
+    __filename = 'output.pdf'
+    data = {k:v for k,v in data.items() if k != '__string'}
 
-    rendered = Environment().from_string(__string).render(**data)
-    pdf = pdfkit.from_string(rendered, False, configuration=config)
-
-    response = make_response(pdf)
-    response.headers['Content-Type'] = 'application/pdf'
-    response.headers['Content-Disposition'] = f'inline; filename={__filename}'
-
-    return response
+    html = Environment().from_string(__string).render(**data)
+    return {'html': html}
 
 if __name__ == '__main__':
     DEBUG = True if environ['STAGE'] != 'prod' else False

@@ -1,3 +1,4 @@
 zappa
 flask
-pdfkit
+git+https://github.com/xhtml2pdf/xhtml2pdf.git#egg=xhtml2pdf
+mimerender
