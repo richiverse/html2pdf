@@ -1,2 +1,2 @@
 # html2pdf
-Use pdfkit and Zappa to generate PDFs given a string
+Use xhtml2pdf and Zappa to generate PDFs given a string
